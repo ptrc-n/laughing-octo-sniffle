@@ -295,7 +295,7 @@ class Encoder(layers.Layer):
             d_model: dimension of the model
             num_heads: number of attention heads
             dff: dimension of the feed forward network
-            input_dimensions: dimension of the input vector (max_active_regions, n_input_features)
+            input_dimensions: dimension of the input vector (max_active_regions, seq_len)
             rate: dropout rate
         """
         super(Encoder, self).__init__()
@@ -317,24 +317,31 @@ class Encoder(layers.Layer):
         """
         Args:
         -----
-            x: of shape (batch_size, seq_len)
+            x: of shape (max_active_regions, seq_len)
             training: boolean
-            mask: of shape (batch_size, seq_len, seq_len)
+            mask: of shape (max_active_regions, seq_len, seq_len)
         
         Returns:
         --------
-            output: of shape (batch_size, seq_len, d_model)
-            attention_weights: of shape (batch_size, num_heads, seq_len_q, seq_len_k)
+            output: of shape (max_active_regions, seq_len, d_model)
+            attention_weights: of shape (max_active_regions, num_heads, seq_len_q, seq_len_k)
         """
-        seq_len = tf.shape(x)[1]
         # adding embedding
-        embeddings = [
-            self.embeddings[i](x[i]) for i in range(len(self.embeddings))
-        ]
-        x = layers.Add(embeddings)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+        embeddings = [[
+            self.embeddings[ar](x[timestep][ar])
+            for ar in range(len(self.embeddings))
+        ] for timestep in range(len(x))]
+        # (timesteps, max_active_regions, d_model)
 
-        x = self.dropout(x, training=training)
+        # reduce dimensionality
+        x = [layers.Add(embeddings[timestep]) for timestep in range(len(x))]
+        # (n_timesteps, d_model)
+
+        x = [
+            self.dropout(x[timestep], training=training)
+            for timestep in range(len(x))
+        ]
+        # (n_timesteps, d_model)
 
         for i in range(self.num_layers):
             x, _ = self.enc_layers[i](x, training, mask)
@@ -436,8 +443,8 @@ class Transformer(layers.Layer):
             d_model: dimension of the model
             num_heads: number of attention heads
             dff: dimensions of point to point ff network
-            input_dimensions: dimension of the input vector
-            target_dimensions: dimension of the target vector
+            input_dimensions: dimension of the input vector (n_timesteps, max_active_regions, seq_len)
+            target_dimensions: dimension of the target vector (n_timesteps, output_dim)
             rate: dropout rate
         """
         super(Transformer, self).__init__()
