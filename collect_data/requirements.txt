@@ -1,0 +1,7 @@
+pandas
+plolty
+numpy
+jupyter
+drms
+requests
+tqdm
