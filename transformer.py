@@ -220,9 +220,9 @@ def dim_reduction_network(dim_input_data, dim_output_data):
     """
     middle_layer_dim = dim_output_data + (dim_input_data - dim_output_data) / 2
     return tf.keras.Sequential([
-        layers.Dense(dim_output_data, activation='linear'),
-        layers.Dense(middle_layer_dim, activation='relu'),
         layers.Dense(dim_input_data, activation='linear'),
+        layers.Dense(middle_layer_dim, activation='relu'),
+        layers.Dense(dim_output_data, activation='linear'),
     ])
 
 
@@ -269,11 +269,11 @@ class EncoderLayer(layers.Layer):
         """
         Args:
         -----
-            x: of shape (n_timesteps, d_model)
+            x: of shape (batchsize, n_timesteps, d_model)
             training: boolean
             mask: of shape (n_timesteps, n_timesteps)
         """
-        # x shape: (n_timesteps, d_model)
+        # x shape: (batchsize, n_timesteps, d_model)
         attn_output, _ = self.mha(x, x, x, mask)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(x +
@@ -403,14 +403,14 @@ class Encoder(layers.Layer):
         # embedding shape: (batchsize, timesteps, max_active_regions, d_model)
 
         # reduce dimensionality
-        x = tf.math.reduce_sum(embed, axis=-1)
+        x = tf.math.reduce_sum(embed, axis=-2)
         # x shape: (batchsize, n_timesteps, d_model)
 
         x = self.dropout(x, training=training)
         # x shape: (batchsize, n_timesteps, d_model)
 
         for i in range(self.num_layers):
-            x, _ = self.enc_layers[i](x, training, mask)
+            x = self.enc_layers[i](x, training, mask)
 
         return x
 
@@ -483,13 +483,12 @@ class Decoder(layers.Layer):
         # x shape: (batchsize, n_timesteps, d_model)
 
         for i in range(self.num_layers):
-            x, attention_weights[f"layer{i}"] = self.dec_layers[i](
-                x,
-                enc_output,
-                training,
-                look_ahead_mask,
-                padding_mask,
-            )
+            x, block1, block2 = self.dec_layers[i](x, enc_output, training,
+                                                   look_ahead_mask,
+                                                   padding_mask)
+
+            attention_weights[f'decoder_layer{i+1}_block1'] = block1
+            attention_weights[f'decoder_layer{i+1}_block2'] = block2
 
         return x, attention_weights
 
@@ -519,8 +518,14 @@ class Transformer(layers.Layer):
         """
         super(Transformer, self).__init__()
 
-        self.encoder = Encoder(num_layers, d_model, num_heads, dff,
-                               input_dimensions, rate)
+        self.encoder = Encoder(
+            num_layers=num_layers,
+            d_model=d_model,
+            num_heads=num_heads,
+            dff=dff,
+            input_dimensions=input_dimensions,
+            rate=rate,
+        )
 
         self.decoder = Decoder(num_layers, d_model, num_heads, dff,
                                target_dimensions, rate)
