@@ -8,17 +8,54 @@ def create_padding_mask(seq, pad_symbol=0):
     """
     Args:
     -----
-        seq: a tensor of shape (batch_size, seq_len) defaults to 0
+        seq: a tensor of shape (batch_size, n_timesteps, max_ar, n_sensors)
+        pad_symbol: the symbol to use for padding defaults to 0
     
     Returns:
     --------
-        mask: a tensor of shape (batch_size, 1, 1, seq_len)
+        mask: a tensor of shape (batch_size, 1, 1, n_timestamps)
     """
-    seq = tf.cast(tf.math.equal(seq, pad_symbol), tf.float32)
+    seq = tf.cast(
+        tf.math.reduce_all(
+            tf.math.reduce_all(
+                tf.math.equal(seq, pad_symbol),
+                axis=-1,
+            ),
+            axis=-1,
+        ),
+        tf.float32,
+    )
 
     # add extra dimensions to add the padding
     # to the attention logits.
-    return seq[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
+    return seq[:, tf.newaxis, tf.newaxis, :]
+    # mask shape: (batch_size, 1, 1, n_timesteps)
+
+
+# create a output padding mask for sequences of different lengths
+def create_out_padding_mask(seq, pad_symbol=0):
+    """
+    Args:
+    -----
+        seq: a tensor of shape (batch_size, n_timesteps, output_dim)
+        pad_symbol: the symbol to use for padding defaults to 0
+    
+    Returns:
+    --------
+        mask: a tensor of shape (batch_size, 1, 1, n_timestamps)
+    """
+    seq = tf.cast(
+        tf.math.reduce_all(
+            tf.math.equal(seq, pad_symbol),
+            axis=-1,
+        ),
+        tf.float32,
+    )
+
+    # add extra dimensions to add the padding
+    # to the attention logits.
+    return seq[:, tf.newaxis, tf.newaxis, :]
+    # mask shape: (batch_size, 1, 1, n_timesteps)
 
 
 # create look ahead mask
@@ -26,11 +63,11 @@ def create_look_ahead_mask(size):
     """
     Args:
     -----
-        size: specifies the sequence length
+        size: n_timesteps
 
     Returns:
     --------
-        mask: of dimensions (seq_len, seq_len)
+        mask: of dimensions (n_timesteps, n_timesteps)
     """
     mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
     return mask
@@ -112,11 +149,23 @@ class MultiHeadAttention(layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     def call(self, v, k, q, mask):
-        batch_size = tf.shape(q)[0]
+        """
+        Args:
+        -----
+            v: value vectors of shape (n_timesteps, d_model)
+            k: key vectors of shape (n_timesteps, d_model)
+            q: query vectors of shape (n_timesteps, d_model)
+            mask: mask of shape (n_timesteps, n_timesteps)
 
-        q = self.wq(q)  # (batch_size, seq_len, d_model)
-        k = self.wk(k)  # (batch_size, seq_len, d_model)
-        v = self.wv(v)  # (batch_size, seq_len, d_model)
+        Returns:
+        --------
+            output: of shape (n_timesteps, d_model)
+        """
+        batch_size = tf.shape(q)[0]  # batch_size = n_timesteps
+
+        q = self.wq(q)  # (n_timesteps, d_model)
+        k = self.wk(k)  # (n_timesteps, d_model)
+        v = self.wv(v)  # (n_timesteps, d_model)
 
         q = self.split_heads(
             q, batch_size)  # (batch_size, num_heads, seq_len_q, depth)
@@ -177,6 +226,23 @@ def dim_reduction_network(dim_input_data, dim_output_data):
     ])
 
 
+def output_embedding_network(dim_target_data, d_model):
+    """
+    Args:
+    -----
+        dim_target_data: size of target vector
+        d_model: size of model
+    
+    Returns:
+    --------
+        output: of shape (batch_size, seq_len, d_model)
+    """
+    return tf.keras.Sequential([
+        layers.Dense(dim_target_data, activation='linear'),
+        layers.Dense(d_model, activation='linear'),
+    ])
+
+
 # define prototype of encorder layer
 class EncoderLayer(layers.Layer):
     def __init__(self, d_model, num_heads, dff, rate=0.1):
@@ -200,6 +266,14 @@ class EncoderLayer(layers.Layer):
         self.dropout2 = layers.Dropout(rate)
 
     def call(self, x, training, mask):
+        """
+        Args:
+        -----
+            x: of shape (n_timesteps, d_model)
+            training: boolean
+            mask: of shape (n_timesteps, n_timesteps)
+        """
+        # x shape: (n_timesteps, d_model)
         attn_output, _ = self.mha(x, x, x, mask)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(x +
@@ -293,19 +367,17 @@ class Encoder(layers.Layer):
         -----
             num_layers: number of layers
             d_model: dimension of the model
-            num_heads: number of attention heads
+            num_heads: number of attention heads, asserts d_model % num_heads == 0
             dff: dimension of the feed forward network
-            input_dimensions: dimension of the input vector (max_active_regions, seq_len)
+            input_dimensions: dimension of the input vector (n_timesteps, max_active_regions, n_sensors)
             rate: dropout rate
         """
         super(Encoder, self).__init__()
 
         self.num_layers = num_layers
 
-        self.embeddings = [
-            dim_reduction_network(input_dimensions[1], d_model)
-            for _ in range(input_dimensions[0])
-        ]
+        self.embedding = dim_reduction_network(input_dimensions[2], d_model)
+
         self.enc_layers = [
             EncoderLayer(d_model, num_heads, dff, rate)
             for _ in range(num_layers)
@@ -317,9 +389,9 @@ class Encoder(layers.Layer):
         """
         Args:
         -----
-            x: of shape (max_active_regions, seq_len)
+            x: of shape (batchsize, n_timesteps, max_active_regions, n_sensors)
             training: boolean
-            mask: of shape (max_active_regions, seq_len, seq_len)
+            mask: of shape (batchsize, 1, 1, n_timesteps)
         
         Returns:
         --------
@@ -327,21 +399,15 @@ class Encoder(layers.Layer):
             attention_weights: of shape (max_active_regions, num_heads, seq_len_q, seq_len_k)
         """
         # adding embedding
-        embeddings = [[
-            self.embeddings[ar](x[timestep][ar])
-            for ar in range(len(self.embeddings))
-        ] for timestep in range(len(x))]
-        # (timesteps, max_active_regions, d_model)
+        embed = self.embedding(x)
+        # embedding shape: (batchsize, timesteps, max_active_regions, d_model)
 
         # reduce dimensionality
-        x = [layers.Add(embeddings[timestep]) for timestep in range(len(x))]
-        # (n_timesteps, d_model)
+        x = tf.math.reduce_sum(embed, axis=-1)
+        # x shape: (batchsize, n_timesteps, d_model)
 
-        x = [
-            self.dropout(x[timestep], training=training)
-            for timestep in range(len(x))
-        ]
-        # (n_timesteps, d_model)
+        x = self.dropout(x, training=training)
+        # x shape: (batchsize, n_timesteps, d_model)
 
         for i in range(self.num_layers):
             x, _ = self.enc_layers[i](x, training, mask)
@@ -367,7 +433,7 @@ class Decoder(layers.Layer):
             d_model: dimension of the model
             num_heads: number of attention heads
             dff: dimensions of point to point ff network
-            target_dimensions: dimension of the target vector
+            target_dimensions: of shape (n_timesteps, output_dimensions)
             rate: dropout rate
         """
         super(Decoder, self).__init__()
@@ -375,7 +441,8 @@ class Decoder(layers.Layer):
         self.num_layers = num_layers
         self.d_model = d_model
 
-        self.embedding = layers.Embedding(target_dimensions, d_model)
+        self.embedding = output_embedding_network(target_dimensions[1],
+                                                  d_model)
         self.dec_layers = [
             DecoderLayer(d_model, num_heads, dff, rate)
             for _ in range(num_layers)
@@ -408,9 +475,12 @@ class Decoder(layers.Layer):
         seq_len = tf.shape(x)[1]
         attention_weights = {}
 
+        # x shape: (batchsize, n_timesteps, output_dimensions)
         x = self.embedding(x)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+        # x shape: (batchsize, n_timesteps, d_model)
+
         x = self.dropout(x, training=training)
+        # x shape: (batchsize, n_timesteps, d_model)
 
         for i in range(self.num_layers):
             x, attention_weights[f"layer{i}"] = self.dec_layers[i](
@@ -443,7 +513,7 @@ class Transformer(layers.Layer):
             d_model: dimension of the model
             num_heads: number of attention heads
             dff: dimensions of point to point ff network
-            input_dimensions: dimension of the input vector (n_timesteps, max_active_regions, seq_len)
+            input_dimensions: dimension of the input vector (n_timesteps, max_active_regions, n_sensors), n_sensors must be greater than d_model
             target_dimensions: dimension of the target vector (n_timesteps, output_dim)
             rate: dropout rate
         """
@@ -455,28 +525,28 @@ class Transformer(layers.Layer):
         self.decoder = Decoder(num_layers, d_model, num_heads, dff,
                                target_dimensions, rate)
 
-        self.final_layer = layers.Dense(target_dimensions)
+        self.final_layer = layers.Dense(target_dimensions[1])
 
     def create_masks(self, inp, tar):
         """
         Args:
         -----
-            inp: of shape (batch_size, seq_len)
-            tar: of shape (batch_size, target_seq_len)
+            inp: of shape (batchsize, n_timesteps, max_ar, n_sensors)
+            tar: of shape (batch_size, n_timesteps, output_dim)
         
         Returns:
         --------
-            enc_padding_mask: of shape (batch_size, 1, seq_len)
-            look_ahead_mask: of shape (batch_size, target_seq_len, target_seq_len)
-            dec_padding_mask: of shape (batch_size, 1, target_seq_len)
+            enc_padding_mask: of shape (batch_size, 1, 1, n_timesteps)
+            look_ahead_mask: of shape (n_timesteps, n_timesteps)
+            dec_padding_mask: of shape (batch_size, 1, n_timesteps, n_timesteps)
         """
         # padding mask
         enc_padding_mask = create_padding_mask(inp)
 
         # look ahead mask
-        dec_padding_mask = create_padding_mask(inp)
+        dec_padding_mask = create_out_padding_mask(tar)
         look_ahead_mask = create_look_ahead_mask(tf.shape(tar)[1])
-        dec_target_padding_mask = create_padding_mask(tar)
+        dec_target_padding_mask = create_out_padding_mask(tar)
         look_ahead_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
 
         return enc_padding_mask, look_ahead_mask, dec_padding_mask
@@ -485,21 +555,24 @@ class Transformer(layers.Layer):
         """
         Args:
         -----
-            inputs: of shape [(batch_size, seq_len), (batch_size, target_seq_len)]
+            inputs: of shape [(batchsize, n_timesteps, max_active_regions, n_sensors), (batchsize, n_timesteps, outout_dim)]
             training: boolean
         
         Returns:
         --------
-            output: of shape (batch_size, target_seq_len, target_dimensions)
+            output: of shape (n_timesteps, output_dim)
             attention_weights: of shape (batch_size, num_heads, seq_len_q, seq_len_k)
         """
         inp, tar = inputs
 
+        # inp shape: (batchsize, n_timesteps, max_active_regions, n_sensors)
+        # tar shape: (batchsize, n_timesteps, output_dim)
         enc_padding_mask, look_ahead_mask, dec_padding_mask = self.create_masks(
             inp,
             tar,
         )
 
+        # inp shape: (batchsize, n_timesteps, max_active_regions, n_sensors)
         enc_output = self.encoder(
             inp,
             training,
