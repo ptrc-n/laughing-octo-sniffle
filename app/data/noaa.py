@@ -5,30 +5,32 @@ import plotly.graph_objects as go
 
 from .find_gaps import find_gaps
 
+YEAR_OF_DATA = 2019
+
 
 @st.cache
-def _load_noaa_data():
+def _load_noaa_data(year_of_data):
     """
     1. Loading NOAA data
     2. Filtering physically unrealistic NOAA data
     """
     gs_df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/2019_Gs_xr_1m.csv'
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/{year_of_data}_Gs_xr_1m.csv'
     )
     gp_df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/2019_Gp_xr_1m.csv'
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/{year_of_data}_Gp_xr_1m.csv'
     )
     ace_epam_df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/2019_ace_epam_5m.csv'
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/{year_of_data}_ace_epam_5m.csv'
     )
     ace_mag_df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/2019_ace_mag_1m.csv'
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/{year_of_data}_ace_mag_1m.csv'
     )
     ace_sis_df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/2019_ace_sis_5m.csv'
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/{year_of_data}_ace_sis_5m.csv'
     )
     ace_swepam_df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/2019_ace_swepam_1m.csv'
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/noaa/{year_of_data}_ace_swepam_1m.csv'
     )
 
     # X-Ray
@@ -100,7 +102,7 @@ def _load_noaa_data():
     return gs_short_df, gs_long_df, gp_short_df, gp_long_df, ace_epam_E_38_53_df, ace_epam_E_175_315_df, ace_epam_P_47_68_df, ace_epam_P_115_195_df, ace_epam_P_310_580_df, ace_epam_P_795_1193_df, ace_epam_P_1060_1900_df, ace_mag_Bx_df, ace_mag_By_df, ace_mag_Bz_df, ace_mag_Bt_df, ace_sis_10_df, ace_sis_30_df, ace_swepam_density_df, ace_swepam_speed_df, ace_swepam_temp_df
 
 
-_noaa_data = _load_noaa_data()
+_noaa_data = _load_noaa_data(YEAR_OF_DATA)
 
 
 def plot_noaa_data(placeholder, start, end) -> go.Figure:
@@ -145,7 +147,7 @@ def plot_noaa_data(placeholder, start, end) -> go.Figure:
     display_ace_swepam_speed_df = filter_dataframe(ace_swepam_speed_df)
     display_ace_swepam_temp_df = filter_dataframe(ace_swepam_temp_df)
 
-    ace_gaps = find_gaps(display_ace_sis_10_df, "timestamp", 16 * 60, end)
+    ace_gaps = find_gaps(display_ace_mag_Bt_df, "timestamp", 16 * 60, end)
     ace_up = len(ace_gaps) == 0 or ace_gaps[-1][-1] != end
     health["ACE"] = (ace_gaps, ace_up)
 
@@ -280,6 +282,7 @@ def plot_noaa_data(placeholder, start, end) -> go.Figure:
 
     fig.update_traces(marker=dict(size=1))
 
+    fig.update_xaxes(range=(start, end))
     fig.update_xaxes(title_text="<b>Timestamp</b> [s]", row=5, col=1)
 
     placeholder.plotly_chart(
@@ -288,4 +291,23 @@ def plot_noaa_data(placeholder, start, end) -> go.Figure:
         config={"displayModeBar": False},
     )
 
-    return health
+    xray_now = max(display_gs_long_df["Long"].iloc[-1],
+                   display_gp_long_df["Long"].iloc[-1])
+
+    x_ray_class = "A - 😊"
+    # x_ray_class = "A"
+
+    if xray_now > 1e-7:
+        x_ray_class = "B - 🤔"
+        # x_ray_class = "B"
+    elif xray_now > 1e-6:
+        x_ray_class = "C - 🤨"
+        # x_ray_class = "C"
+    elif xray_now > 1e-5:
+        x_ray_class = "M - 😦"
+        # x_ray_class = "M"
+    elif xray_now > 1e-4:
+        x_ray_class = "X - 😱"
+        # x_ray_class = "X"
+
+    return health, x_ray_class

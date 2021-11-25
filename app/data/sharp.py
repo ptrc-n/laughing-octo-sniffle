@@ -5,6 +5,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from .find_gaps import find_gaps
 
+YEAR_OF_DATA = 2019
+
 _first_row = [
     "USFLUX",
     "TOTPOT",
@@ -37,16 +39,17 @@ _sharp_columns = [*_first_row, *_second_row, *_third_row]
 
 
 @st.cache
-def _load_sharp_data():
+def _load_sharp_data(year_of_data):
     df = pd.read_csv(
-        '/mnt/hackathon2021/Weltraumwetterlage/own_data/sharp/2019.csv')
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/sharp/{year_of_data}.csv'
+    )
     df = df[["timestamp", *_sharp_columns]]
     for col in _sharp_columns:
         df[col] = df[col] / df[col].mean()
     return df
 
 
-_sharp_data = _load_sharp_data()
+_sharp_data = _load_sharp_data(YEAR_OF_DATA)
 
 
 def plot_sharp_data(placeholder, data_horizon) -> go.Figure:
@@ -79,6 +82,9 @@ def plot_sharp_data(placeholder, data_horizon) -> go.Figure:
         showlegend=False,
         hovermode="x",
     )
+
+    fig.update_traces(marker=dict(size=3))
+
     fig.update_xaxes(range=(start, end))
     fig.update_xaxes(title_text="<b>Timestamp</b> [s]", row=3, col=1)
     placeholder.plotly_chart(

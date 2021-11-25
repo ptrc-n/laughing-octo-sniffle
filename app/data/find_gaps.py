@@ -15,12 +15,14 @@ def find_gaps(
     Returns a list of tuples with the start and end of the gaps.
     """
     df = df.dropna()
+    if len(df) == 0:
+        return [(-1, end)]
     timecol = df[timecol]
     time_diff = timecol.diff()
     gaps = [i for i, x in enumerate(time_diff) if x > gap_threshold]
     print(timecol)
     print(gaps)
-    gaps = [(timecol.iloc[i], timecol.iloc[i + 1]) for i in gaps]
+    gaps = [(timecol.iloc[i - 1], timecol.iloc[i]) for i in gaps]
     last_timestamp = df['timestamp'].iloc[-1]
     if end is not None and end - last_timestamp > gap_threshold:
         gaps.append((last_timestamp, end))

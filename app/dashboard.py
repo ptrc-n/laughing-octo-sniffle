@@ -10,6 +10,8 @@ from data.sharp import plot_sharp_data
 from data.noaa import plot_noaa_data
 from data.images import plot_sharp_image
 
+YEAR_OF_DATA = 2019  # NOTE: also modify in noaa.py and sharp.py
+
 delta = timedelta(hours=1)
 
 ranges = {
@@ -23,8 +25,8 @@ range_ = st.sidebar.selectbox("Range to inspect", list(ranges.keys()), 0)
 
 play_option = st.sidebar.selectbox(
     "Select run mode",
-    ["Auto-Run", "Slider"],
-    index=1,
+    ["Live", "Slider"],
+    index=0,
 )
 
 if play_option == "Slider":
@@ -40,17 +42,27 @@ if play_option == "Slider":
 else:
     offset = timedelta(weeks=0)
 
-start_time = (datetime(2019, 1, 1) + delta).timestamp()
+start_time = (datetime(YEAR_OF_DATA, 1, 1) + delta).timestamp()
 end_time = (datetime.fromtimestamp(start_time) + ranges[range_]).timestamp()
+
+st.write("### X-Ray Danger Class")
+danger_cols = st.columns(2)
+with danger_cols[0]:
+    current_class = st.empty()
+with danger_cols[1]:
+    future_class = st.empty()
 
 health_cols = st.columns(4)
 with health_cols[0]:
+    st.write("### X-Ray Status")
     xray_status = st.empty()
     xray_metric = st.empty()
 with health_cols[1]:
+    st.write("### ACE Status")
     ace_status = st.empty()
     ace_metric = st.empty()
 with health_cols[2]:
+    st.write("### SHARP Status")
     sharp_status = st.empty()
     sharp_metric = st.empty()
 with health_cols[3]:
@@ -99,7 +111,8 @@ with plot_cols[1]:
 
 
 def draw_charts(start, end):
-    noaa_health = plot_noaa_data(placeholder_noaa, start, end)
+    noaa_health, xray_now = plot_noaa_data(placeholder_noaa, start, end)
+    current_class.metric("Current", xray_now)
 
     xray_gaps = noaa_health["GS"][0] + noaa_health["GP"][0]
     xray_up = noaa_health["GS"][1] + noaa_health["GP"][1]
@@ -132,8 +145,8 @@ def draw_charts(start, end):
 
 draw_charts(start_time, end_time)
 
-if play_option == "Auto-Run":
-    while end_time < datetime(2019, 12, 31).timestamp():
+if play_option == "Live":
+    while end_time < datetime(YEAR_OF_DATA, 12, 31).timestamp():
         time.sleep(1)
         start_time = (datetime.fromtimestamp(start_time) + delta).timestamp()
         end_time = (datetime.fromtimestamp(end_time) + delta).timestamp()

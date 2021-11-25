@@ -53,4 +53,4 @@ def main(year):
 
 
 if __name__ == "__main__":
-    main(2019)
+    main(2018)

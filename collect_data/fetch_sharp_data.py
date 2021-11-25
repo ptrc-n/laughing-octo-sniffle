@@ -40,7 +40,6 @@ def query_harp_for_year(harp_number, year, series):
 def main(series: str, year: int, harp_numbers: list):
     dataframes = []
     for harp_number in tqdm(harp_numbers):
-        print(f"{datetime.now()} Querying HARP {harp_number}")
         dataframe = query_harp_for_year(harp_number, year, series)
         if len(dataframe) > 0:
             dataframes.append(dataframe)
@@ -63,4 +62,4 @@ if __name__ == '__main__':
     SERIES_NAME = 'hmi.sharp_cea_720s'
     # SERIES_NAME = 'hmi.sharp_cea_720s_nrt'
 
-    main(SERIES_NAME, 2019, harp_numbers)
+    main(SERIES_NAME, 2018, harp_numbers)
