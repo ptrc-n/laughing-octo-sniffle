@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from .find_gaps import find_gaps
+from .predictor import Avocato
+import tensorflow as tf
 
 YEAR_OF_DATA = 2019
 
@@ -49,14 +51,34 @@ def _load_sharp_data(year_of_data):
     return df
 
 
+@st.cache
+def _load_sharp_data_prediction(year_of_data):
+    df = pd.read_csv(
+        f'/mnt/hackathon2021/Weltraumwetterlage/own_data/sharp/{year_of_data}.csv'
+    )
+    df = df[["timestamp", *_sharp_columns]]
+    return df
+
+
 _sharp_data = _load_sharp_data(YEAR_OF_DATA)
+_sharp_data_prediction = _load_sharp_data_prediction(YEAR_OF_DATA)
+_model = Avocato("8h-1")
 
 
-def plot_sharp_data(placeholder, data_horizon) -> go.Figure:
+def plot_sharp_data(placeholder, data_horizon):
     start, end = data_horizon
 
-    display_data = _sharp_data[(_sharp_data['timestamp'] >= start)
-                               & (_sharp_data['timestamp'] <= end)]
+    display_data = _sharp_data[(_sharp_data["timestamp"] >= start)
+                               & (_sharp_data["timestamp"] <= end)]
+    _sharp_data_prediction = _sharp_data_prediction[
+        (_sharp_data_prediction["timestamp"] >= start)
+        & (_sharp_data_prediction["timestamp"] <= end)]
+    _sharp_data_prediction = _sharp_data_prediction[
+        (_sharp_data_prediction["timestamp"] >
+         (datetime.fromtimestamp(end) - timedelta(hours=1)).timestamp())
+        & (_sharp_data_prediction["timestamp"] <= end)]
+
+    x_ray_pred = _model(_sharp_data_prediction)
 
     fig = make_subplots(
         rows=3,
@@ -95,4 +117,18 @@ def plot_sharp_data(placeholder, data_horizon) -> go.Figure:
 
     gap_threshold = 3 * 12 * 60
     gaps = find_gaps(display_data, "timestamp", gap_threshold, end)
-    return gaps
+
+    xray_pred = tf.math.reduce_max(x_ray_pred, axis=-2).numpy()[0][1]
+
+    x_ray_class_pred = "A - 😊"
+
+    if xray_pred > 1e-7:
+        x_ray_class_pred = "B - 🤔"
+    elif xray_pred > 1e-6:
+        x_ray_class_pred = "C - 🤨"
+    elif xray_pred > 1e-5:
+        x_ray_class_pred = "M - 😦"
+    elif xray_pred > 1e-4:
+        x_ray_class_pred = "X - 😱"
+
+    return gaps, x_ray_class_pred

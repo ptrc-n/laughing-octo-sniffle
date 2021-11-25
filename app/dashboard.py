@@ -48,9 +48,9 @@ end_time = (datetime.fromtimestamp(start_time) + ranges[range_]).timestamp()
 st.write("### X-Ray Danger Class")
 danger_cols = st.columns(2)
 with danger_cols[0]:
-    current_class = st.empty()
+    prediction_class = st.empty()
 with danger_cols[1]:
-    future_class = st.empty()
+    validation_class = st.empty()
 
 health_cols = st.columns(4)
 with health_cols[0]:
@@ -111,8 +111,9 @@ with plot_cols[1]:
 
 
 def draw_charts(start, end):
-    noaa_health, xray_now = plot_noaa_data(placeholder_noaa, start, end)
-    current_class.metric("Current", xray_now)
+    noaa_health, x_ray_class_future = plot_noaa_data(placeholder_noaa, start,
+                                                     end)
+    validation_class.metric("Validation", x_ray_class_future)
 
     xray_gaps = noaa_health["GS"][0] + noaa_health["GP"][0]
     xray_up = noaa_health["GS"][1] + noaa_health["GP"][1]
@@ -136,7 +137,8 @@ def draw_charts(start, end):
         "SHARP current Status",
         "OK" if starp_ok else "DOWN",
     )
-    gaps = plot_sharp_data(placeholder_sharp, (start, end))
+    gaps, x_ray_class_pred = plot_sharp_data(placeholder_sharp, (start, end))
+    prediction_class.metric("Prediction", x_ray_class_pred)
     sharp_metric.metric(
         f"SHARP Gaps",
         len(gaps),

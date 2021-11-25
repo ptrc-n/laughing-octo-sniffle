@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras import models
 import silence_tensorflow.auto
 import numpy as np
-from transformer import Transformer
+from .transformer import Transformer
 
 
 class Avocato():
@@ -61,5 +61,4 @@ class Avocato():
         for i in tf.range(self.metadata["n_timesteps"]):
             output, _ = self.model([in_data, output], training=False)
 
-        return output * self.metadata["xray_std"] + self.metadata[
-            "xray_mean"], output
+        return output * self.metadata["xray_std"] + self.metadata["xray_mean"]

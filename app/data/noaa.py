@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
@@ -105,7 +106,7 @@ def _load_noaa_data(year_of_data):
 _noaa_data = _load_noaa_data(YEAR_OF_DATA)
 
 
-def plot_noaa_data(placeholder, start, end) -> go.Figure:
+def plot_noaa_data(placeholder, start, end):
     filter_dataframe = lambda df: df[
         (df["timestamp"] >= start) & (df["timestamp"] <= end)]
 
@@ -115,6 +116,11 @@ def plot_noaa_data(placeholder, start, end) -> go.Figure:
     # X-Ray
     display_gs_short_df = filter_dataframe(gs_short_df)
     display_gs_long_df = filter_dataframe(gs_long_df)
+    gs_long_future = gs_long_df["Long"][
+        (gs_long_df["timestamp"] >
+         (datetime.fromtimestamp(end) + timedelta(hours=7)).timestamp())
+        & (gs_long_df["timestamp"] <=
+           (datetime.fromtimestamp(end) + timedelta(hours=8)).timestamp())]
 
     gs_gaps = find_gaps(display_gs_short_df, "timestamp", 5 * 60, end)
     gs_up = len(gs_gaps) == 0 or gs_gaps[-1][-1] != end
@@ -122,6 +128,12 @@ def plot_noaa_data(placeholder, start, end) -> go.Figure:
 
     display_gp_short_df = filter_dataframe(gp_short_df)
     display_gp_long_df = filter_dataframe(gp_long_df)
+    gp_long_future = gp_long_df["Long"][
+        (gp_long_df["timestamp"] >
+         (datetime.fromtimestamp(end) + timedelta(hours=7)).timestamp())
+        & (gp_long_df["timestamp"] <=
+           (datetime.fromtimestamp(end) + timedelta(hours=8)).timestamp())]
+
     gp_gaps = find_gaps(display_gp_short_df, "timestamp", 5 * 60, end)
     gp_up = len(gp_gaps) == 0 or gp_gaps[-1][-1] != end
     health["GP"] = (gp_gaps, gp_up)
@@ -291,23 +303,20 @@ def plot_noaa_data(placeholder, start, end) -> go.Figure:
         config={"displayModeBar": False},
     )
 
-    xray_now = max(display_gs_long_df["Long"].iloc[-1],
-                   display_gp_long_df["Long"].iloc[-1])
+    # xray_now = max(display_gs_long_df["Long"].iloc[-1],
+    #    display_gp_long_df["Long"].iloc[-1])
 
-    x_ray_class = "A - 😊"
-    # x_ray_class = "A"
+    xray_future = max(gs_long_future.max(), gp_long_future.max())
 
-    if xray_now > 1e-7:
-        x_ray_class = "B - 🤔"
-        # x_ray_class = "B"
-    elif xray_now > 1e-6:
-        x_ray_class = "C - 🤨"
-        # x_ray_class = "C"
-    elif xray_now > 1e-5:
-        x_ray_class = "M - 😦"
-        # x_ray_class = "M"
-    elif xray_now > 1e-4:
-        x_ray_class = "X - 😱"
-        # x_ray_class = "X"
+    x_ray_class_future = "A - 😊"
 
-    return health, x_ray_class
+    if xray_future > 1e-7:
+        x_ray_class_future = "B - 🤔"
+    elif xray_future > 1e-6:
+        x_ray_class_future = "C - 🤨"
+    elif xray_future > 1e-5:
+        x_ray_class_future = "M - 😦"
+    elif xray_future > 1e-4:
+        x_ray_class_future = "X - 😱"
+
+    return health, x_ray_class_future

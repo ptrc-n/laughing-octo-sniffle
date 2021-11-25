@@ -20,8 +20,8 @@ def find_gaps(
     timecol = df[timecol]
     time_diff = timecol.diff()
     gaps = [i for i, x in enumerate(time_diff) if x > gap_threshold]
-    print(timecol)
-    print(gaps)
+    # print(timecol)
+    # print(gaps)
     gaps = [(timecol.iloc[i - 1], timecol.iloc[i]) for i in gaps]
     last_timestamp = df['timestamp'].iloc[-1]
     if end is not None and end - last_timestamp > gap_threshold:
