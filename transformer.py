@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras import layers
 import silence_tensorflow.auto  # silence TF warnings
+import numpy as np
 
 
 # create a padding mask for sequences of different lengths
@@ -89,6 +90,7 @@ def scaled_dot_product_attention(q, k, v, mask=None):
         attention_weights: of shape (batch_size, seq_len_q, d_model)
     """
     # get the product of the query and key vectors
+
     matmul_qk = tf.matmul(q, k, transpose_b=True)
 
     # scale the product
@@ -109,7 +111,7 @@ def scaled_dot_product_attention(q, k, v, mask=None):
 
 
 #create multi headed attention layer
-class MultiHeadAttention(layers.Layer):
+class MultiHeadAttentionCustom(layers.Layer):
     def __init__(self, d_model, num_heads, dropout):
         """
         Args:
@@ -118,11 +120,9 @@ class MultiHeadAttention(layers.Layer):
             num_heads: number of heads
             dropout: dropout rate
         """
-        super(MultiHeadAttention, self).__init__()
+        super(MultiHeadAttentionCustom, self).__init__()
         self.num_heads = num_heads
         self.d_model = d_model
-
-        assert d_model % self.num_heads == 0
 
         self.depth = d_model // self.num_heads
 
@@ -176,15 +176,18 @@ class MultiHeadAttention(layers.Layer):
 
         scaled_attention, attention_weights = scaled_dot_product_attention(
             q, k, v, mask)
+
         scaled_attention = tf.transpose(
             scaled_attention,
             perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
+
         concat_attention = tf.reshape(
             scaled_attention,
             (batch_size, -1, self.d_model))  # (batch_size, seq_len_q, d_model)
 
         output = self.dense(
             concat_attention)  # (batch_size, seq_len_q, d_model)
+
         return output, attention_weights
 
 
@@ -256,7 +259,7 @@ class EncoderLayer(layers.Layer):
         """
         super(EncoderLayer, self).__init__()
 
-        self.mha = MultiHeadAttention(d_model, num_heads, rate)
+        self.mha = MultiHeadAttentionCustom(d_model, num_heads, rate)
         self.ffn = point_wise_feed_forward_network(d_model, dff)
 
         self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
@@ -275,13 +278,17 @@ class EncoderLayer(layers.Layer):
         """
         # x shape: (batchsize, n_timesteps, d_model)
         attn_output, _ = self.mha(x, x, x, mask)
+
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(x +
                                attn_output)  # (batch_size, seq_len, d_model)
+
         ffn_output = self.ffn(out1)  # (batch_size, seq_len, d_model)
+
         ffn_output = self.dropout2(ffn_output, training=training)
         out2 = self.layernorm2(out1 +
                                ffn_output)  # (batch_size, seq_len, d_model)
+
         return out2
 
 
@@ -298,8 +305,8 @@ class DecoderLayer(layers.Layer):
         """
         super(DecoderLayer, self).__init__()
 
-        self.mha1 = MultiHeadAttention(d_model, num_heads, rate)
-        self.mha2 = MultiHeadAttention(d_model, num_heads, rate)
+        self.mha1 = MultiHeadAttentionCustom(d_model, num_heads, rate)
+        self.mha2 = MultiHeadAttentionCustom(d_model, num_heads, rate)
 
         self.ffn = point_wise_feed_forward_network(d_model, dff)
 
@@ -494,7 +501,7 @@ class Decoder(layers.Layer):
 
 
 # create a prototype for a transformer
-class Transformer(layers.Layer):
+class Transformer(tf.keras.Model):
     def __init__(
         self,
         num_layers,

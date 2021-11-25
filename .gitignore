@@ -3,3 +3,8 @@
 *.pyc
 
 __pycache__
+data
+
+models
+meta
+
