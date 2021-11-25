@@ -116,7 +116,7 @@ def plot_noaa_data(placeholder, start, end):
     # X-Ray
     display_gs_short_df = filter_dataframe(gs_short_df)
     display_gs_long_df = filter_dataframe(gs_long_df)
-    gs_long_future = gs_long_df["Long"][
+    gs_long_future = gs_long_df[
         (gs_long_df["timestamp"] >
          (datetime.fromtimestamp(end) + timedelta(hours=7)).timestamp())
         & (gs_long_df["timestamp"] <=
@@ -128,7 +128,7 @@ def plot_noaa_data(placeholder, start, end):
 
     display_gp_short_df = filter_dataframe(gp_short_df)
     display_gp_long_df = filter_dataframe(gp_long_df)
-    gp_long_future = gp_long_df["Long"][
+    gp_long_future = gp_long_df[
         (gp_long_df["timestamp"] >
          (datetime.fromtimestamp(end) + timedelta(hours=7)).timestamp())
         & (gp_long_df["timestamp"] <=
@@ -306,7 +306,8 @@ def plot_noaa_data(placeholder, start, end):
     # xray_now = max(display_gs_long_df["Long"].iloc[-1],
     #    display_gp_long_df["Long"].iloc[-1])
 
-    xray_future = max(gs_long_future.max(), gp_long_future.max())
+    xray_future = max(gs_long_future["Long"].max(),
+                      gp_long_future["Long"].max())
 
     x_ray_class_future = "A - 😊"
 
@@ -319,4 +320,4 @@ def plot_noaa_data(placeholder, start, end):
     elif xray_future > 1e-4:
         x_ray_class_future = "X - 😱"
 
-    return health, x_ray_class_future
+    return health, x_ray_class_future, gs_long_future, gp_long_future

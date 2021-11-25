@@ -18,6 +18,7 @@ _second_row = [
     "MEANGAM",
     "MEANGBT",
     "MEANGBZ",
+    "MEANGBH",
     "TOTUSJZ",
     "TOTUSJH",
     "ABSNJZH",
@@ -32,6 +33,29 @@ _second_row = [
 ]
 
 _third_row = [
+    "MEANJZD",
+    "MEANALP",
+    "MEANJZH",
+]
+
+load_sharp_columns = [
+    "USFLUX",
+    "MEANGAM",
+    "MEANGBT",
+    "MEANGBZ",
+    "MEANGBH",
+    "TOTPOT",
+    "TOTUSJZ",
+    "TOTUSJH",
+    "ABSNJZH",
+    "SAVNCPP",
+    "MEANPOT",
+    "MEANSHR",
+    "SHRGT45",
+    "SIZE",
+    "SIZE_ACR",
+    "NACR",
+    "NPIX",
     "MEANJZD",
     "MEANALP",
     "MEANJZH",
@@ -56,16 +80,17 @@ def _load_sharp_data_prediction(year_of_data):
     df = pd.read_csv(
         f'/mnt/hackathon2021/Weltraumwetterlage/own_data/sharp/{year_of_data}.csv'
     )
-    df = df[["timestamp", "harp", *_sharp_columns]]
+    df = df[["timestamp", "harp", *load_sharp_columns]]
     return df
 
 
 _sharp_data = _load_sharp_data(YEAR_OF_DATA)
 # _sharp_data_prediction = _load_sharp_data_prediction(YEAR_OF_DATA)
-_model = Avocato("8h-1")
+_model = Avocato("8h-2")
 
 
-def plot_sharp_data(placeholder, data_horizon):
+def plot_sharp_data(placeholder, data_horizon, placeholder_prediction,
+                    gs_long_future, gp_long_future):
     start, end = data_horizon
 
     display_data = _sharp_data[(_sharp_data["timestamp"] >= start)
@@ -130,5 +155,18 @@ def plot_sharp_data(placeholder, data_horizon):
         x_ray_class_pred = "M - 😦"
     elif xray_pred > 1e-4:
         x_ray_class_pred = "X - 😱"
+
+    fig_pred = go.Figure()
+    fig_pred.add_trace(
+        go.Scatter(x=gs_long_future["timestamp"],
+                   y=gs_long_future["Long"],
+                   mode='markers',
+                   name="gs_long_future"))
+
+    placeholder_prediction.plotly_chart(
+        fig_pred,
+        use_container_width=True,
+        config={"displayModeBar": False},
+    )
 
     return gaps, x_ray_class_pred

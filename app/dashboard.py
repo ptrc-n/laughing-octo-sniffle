@@ -68,7 +68,8 @@ with health_cols[2]:
     sharp_metric = st.empty()
 with health_cols[3]:
     placeholder_sharp_image = st.empty()
-
+# prediction test
+placeholder_prediction = st.empty()
 plot_cols = st.columns(2)
 
 with plot_cols[0]:
@@ -112,8 +113,8 @@ with plot_cols[1]:
 
 
 def draw_charts(start, end):
-    noaa_health, x_ray_class_future = plot_noaa_data(placeholder_noaa, start,
-                                                     end)
+    noaa_health, x_ray_class_future, gs_long_future, gp_long_future = plot_noaa_data(
+        placeholder_noaa, start, end)
     validation_class.metric("Validation", x_ray_class_future)
 
     xray_gaps = noaa_health["GS"][0] + noaa_health["GP"][0]
@@ -138,7 +139,9 @@ def draw_charts(start, end):
         "SHARP current Status",
         "OK" if starp_ok else "DOWN",
     )
-    gaps, x_ray_class_pred = plot_sharp_data(placeholder_sharp, (start, end))
+    gaps, x_ray_class_pred = plot_sharp_data(placeholder_sharp, (start, end),
+                                             placeholder_prediction,
+                                             gs_long_future, gp_long_future)
     prediction_class.metric("Prediction", x_ray_class_pred)
     sharp_metric.metric(
         f"SHARP Gaps",
