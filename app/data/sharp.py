@@ -45,7 +45,7 @@ def _load_sharp_data(year_of_data):
     df = pd.read_csv(
         f'/mnt/hackathon2021/Weltraumwetterlage/own_data/sharp/{year_of_data}.csv'
     )
-    df = df[["timestamp", *_sharp_columns]]
+    df = df[["timestamp", "harp", *_sharp_columns]]
     for col in _sharp_columns:
         df[col] = df[col] / df[col].mean()
     return df
@@ -56,12 +56,12 @@ def _load_sharp_data_prediction(year_of_data):
     df = pd.read_csv(
         f'/mnt/hackathon2021/Weltraumwetterlage/own_data/sharp/{year_of_data}.csv'
     )
-    df = df[["timestamp", *_sharp_columns]]
+    df = df[["timestamp", "harp", *_sharp_columns]]
     return df
 
 
 _sharp_data = _load_sharp_data(YEAR_OF_DATA)
-_sharp_data_prediction = _load_sharp_data_prediction(YEAR_OF_DATA)
+# _sharp_data_prediction = _load_sharp_data_prediction(YEAR_OF_DATA)
 _model = Avocato("8h-1")
 
 
@@ -70,9 +70,9 @@ def plot_sharp_data(placeholder, data_horizon):
 
     display_data = _sharp_data[(_sharp_data["timestamp"] >= start)
                                & (_sharp_data["timestamp"] <= end)]
-    _sharp_data_prediction = _sharp_data_prediction[
-        (_sharp_data_prediction["timestamp"] >= start)
-        & (_sharp_data_prediction["timestamp"] <= end)]
+    _sharp_data_prediction = _load_sharp_data_prediction(YEAR_OF_DATA)[
+        (_load_sharp_data_prediction(YEAR_OF_DATA)["timestamp"] >= start)
+        & (_load_sharp_data_prediction(YEAR_OF_DATA)["timestamp"] <= end)]
     _sharp_data_prediction = _sharp_data_prediction[
         (_sharp_data_prediction["timestamp"] >
          (datetime.fromtimestamp(end) - timedelta(hours=1)).timestamp())

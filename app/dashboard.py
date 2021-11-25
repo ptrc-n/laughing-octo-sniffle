@@ -20,6 +20,7 @@ ranges = {
     "1 Week": timedelta(weeks=1),
 }
 
+st.text("Debug")
 st.header("Final Space Weather")
 range_ = st.sidebar.selectbox("Range to inspect", list(ranges.keys()), 0)
 
