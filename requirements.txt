@@ -1,8 +1,12 @@
+tensorflow
+numpy
+silence_tensorflow
 pandas
 plotly
-numpy
-jupyter
-drms
-requests
-tqdm
 streamlit
+yapf
+pylint
+jupyter
+tqdm
+requests
+drms
