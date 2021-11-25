@@ -1,8 +1,12 @@
 tensorflow
+numpy
 silence_tensorflow
 pandas
+plotly
 streamlit
 yapf
 pylint
 jupyter
 tqdm
+requests
+drms

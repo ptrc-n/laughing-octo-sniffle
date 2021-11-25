@@ -3,8 +3,8 @@
 *.pyc
 
 __pycache__
+.pytest_cache
 data
 
 models
 meta
-
