@@ -121,6 +121,7 @@ def plot_noaa_data(placeholder, start, end):
          (datetime.fromtimestamp(end) + timedelta(hours=7)).timestamp())
         & (gs_long_df["timestamp"] <=
            (datetime.fromtimestamp(end) + timedelta(hours=8)).timestamp())]
+    gs_long_future = gs_long_future.iloc[::12, :]
 
     gs_gaps = find_gaps(display_gs_short_df, "timestamp", 5 * 60, end)
     gs_up = len(gs_gaps) == 0 or gs_gaps[-1][-1] != end
@@ -133,6 +134,7 @@ def plot_noaa_data(placeholder, start, end):
          (datetime.fromtimestamp(end) + timedelta(hours=7)).timestamp())
         & (gp_long_df["timestamp"] <=
            (datetime.fromtimestamp(end) + timedelta(hours=8)).timestamp())]
+    gp_long_future = gp_long_future.iloc[::12, :]
 
     gp_gaps = find_gaps(display_gp_short_df, "timestamp", 5 * 60, end)
     gp_up = len(gp_gaps) == 0 or gp_gaps[-1][-1] != end
@@ -303,13 +305,14 @@ def plot_noaa_data(placeholder, start, end):
         config={"displayModeBar": False},
     )
 
-    # xray_now = max(display_gs_long_df["Long"].iloc[-1],
-    #    display_gp_long_df["Long"].iloc[-1])
+    xray_now = max(display_gs_long_df["Long"].iloc[-1],
+                   display_gp_long_df["Long"].iloc[-1])
 
     xray_future = max(gs_long_future["Long"].max(),
                       gp_long_future["Long"].max())
 
     x_ray_class_future = "A - 😊"
+    x_ray_class_now = "A - 😊"
 
     if xray_future > 1e-7:
         x_ray_class_future = "B - 🤔"
@@ -320,4 +323,13 @@ def plot_noaa_data(placeholder, start, end):
     elif xray_future > 1e-4:
         x_ray_class_future = "X - 😱"
 
-    return health, x_ray_class_future, gs_long_future, gp_long_future
+    if xray_now > 1e-7:
+        x_ray_class_now = "B - 🤔"
+    elif xray_now > 1e-6:
+        x_ray_class_now = "C - 🤨"
+    elif xray_now > 1e-5:
+        x_ray_class_now = "M - 😦"
+    elif xray_now > 1e-4:
+        x_ray_class_now = "X - 😱"
+
+    return health, x_ray_class_now, x_ray_class_future, gs_long_future, gp_long_future

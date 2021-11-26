@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from .find_gaps import find_gaps
 from .predictor import Avocato
 import tensorflow as tf
+import numpy as np
 
 YEAR_OF_DATA = 2019
 
@@ -143,30 +144,42 @@ def plot_sharp_data(placeholder, data_horizon, placeholder_prediction,
     gap_threshold = 3 * 12 * 60
     gaps = find_gaps(display_data, "timestamp", gap_threshold, end)
 
-    xray_pred = tf.math.reduce_max(x_ray_pred, axis=-2).numpy()[0][1]
+    x_ray_pred_plot = tf.math.reduce_max(x_ray_pred, axis=-1).numpy()[0]
+
+    x_ray_pred = tf.math.reduce_max(tf.math.reduce_max(x_ray_pred, axis=-2),
+                                    axis=0).numpy()[0][-1]
 
     x_ray_class_pred = "A - 😊"
 
-    if xray_pred > 1e-7:
+    if x_ray_pred > 1e-7:
         x_ray_class_pred = "B - 🤔"
-    elif xray_pred > 1e-6:
+    elif x_ray_pred > 1e-6:
         x_ray_class_pred = "C - 🤨"
-    elif xray_pred > 1e-5:
+    elif x_ray_pred > 1e-5:
         x_ray_class_pred = "M - 😦"
-    elif xray_pred > 1e-4:
+    elif x_ray_pred > 1e-4:
         x_ray_class_pred = "X - 😱"
+
+    x = np.array([1, 2, 3, 4, 5])
 
     fig_pred = go.Figure()
     fig_pred.add_trace(
-        go.Scatter(x=gs_long_future["timestamp"],
+        go.Scatter(x=x,
                    y=gs_long_future["Long"],
                    mode='markers',
                    name="gs_long_future"))
+    fig_pred.add_trace(
+        go.Scatter(x=x,
+                   y=gp_long_future["Long"],
+                   mode='markers',
+                   name="gp_long_future"))
+    fig_pred.add_trace(
+        go.Scatter(x=x, y=x_ray_pred_plot, mode='markers', name="x_ray_pred"))
 
-    placeholder_prediction.plotly_chart(
-        fig_pred,
-        use_container_width=True,
-        config={"displayModeBar": False},
-    )
+    # placeholder_prediction.plotly_chart(
+    #     fig_pred,
+    #     use_container_width=True,
+    #     config={"displayModeBar": False},
+    # )
 
     return gaps, x_ray_class_pred
