@@ -58,7 +58,10 @@ class Avocato():
             self.metadata["n_out"],
         ))
 
+        out_list = []
         for i in tf.range(self.metadata["n_timesteps"]):
             output, _ = self.model([in_data, output], training=False)
+            out_list.append(output * self.metadata["xray_std"] +
+                            self.metadata["xray_mean"])
 
-        return output * self.metadata["xray_std"] + self.metadata["xray_mean"]
+        return out_list
