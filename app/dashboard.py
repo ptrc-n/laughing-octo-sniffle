@@ -20,7 +20,6 @@ ranges = {
     "1 Week": timedelta(weeks=1),
 }
 
-st.text("Debug")
 st.header("Final Space Weather")
 range_ = st.sidebar.selectbox("Range to inspect", list(ranges.keys()), 0)
 
@@ -47,10 +46,12 @@ start_time = (datetime(YEAR_OF_DATA, 1, 1) + delta).timestamp()
 end_time = (datetime.fromtimestamp(start_time) + ranges[range_]).timestamp()
 
 st.write("### X-Ray Danger Class")
-danger_cols = st.columns(2)
+danger_cols = st.columns(4)
 with danger_cols[0]:
-    prediction_class = st.empty()
+    current_class = st.empty()
 with danger_cols[1]:
+    prediction_class = st.empty()
+with danger_cols[2]:
     validation_class = st.empty()
 
 health_cols = st.columns(4)
@@ -113,8 +114,9 @@ with plot_cols[1]:
 
 
 def draw_charts(start, end):
-    noaa_health, x_ray_class_future, gs_long_future, gp_long_future = plot_noaa_data(
+    noaa_health, x_ray_class_now, x_ray_class_future, gs_long_future, gp_long_future = plot_noaa_data(
         placeholder_noaa, start, end)
+    current_class.metric("Current", x_ray_class_now)
     validation_class.metric("Validation", x_ray_class_future)
 
     xray_gaps = noaa_health["GS"][0] + noaa_health["GP"][0]
